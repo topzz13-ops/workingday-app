@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>대한민국 Working Day 자동 계산기</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex items-center justify-center p-4">
+
+    <div class="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl p-6 md:p-8">
+        
+        <!-- 헤더 -->
+        <div class="flex items-center justify-between border-b border-slate-800 pb-5 mb-6">
+            <div>
+                <h1 class="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
+                    <span>💼</span> Working Day 계산기
+                </h1>
+                <p class="text-xs text-slate-400 mt-1">대한민국 공휴일 및 임시공휴일 자동 반영</p>
+            </div>
+
+            <!-- 연간 / 월간 보기 토글 버튼 -->
+            <div class="bg-slate-950 p-1 rounded-xl border border-slate-800 flex items-center">
+                <button id="btn-mode-month" onclick="switchMode('month')" class="px-3 py-1.5 text-xs font-bold rounded-lg transition-all text-white bg-emerald-500 shadow-md">
+                    월간 보기
+                </button>
+                <button id="btn-mode-year" onclick="switchMode('year')" class="px-3 py-1.5 text-xs font-bold rounded-lg transition-all text-slate-400 hover:text-white">
+                    연간 보기
+                </button>
+            </div>
+        </div>
+
+        <!-- 조회 조건 (연도 / 월 선택) -->
+        <div class="grid grid-cols-2 gap-3 mb-5">
+            <div>
+                <label class="block text-xs font-semibold text-slate-400 mb-1.5">연도 (Year)</label>
+                <select id="select-year" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500">
+                    <!-- JS 동적 생성 (현재 기준 ±10년) -->
+                </select>
+            </div>
+            <div id="month-select-container">
+                <label class="block text-xs font-semibold text-slate-400 mb-1.5">월 (Month)</label>
+                <select id="select-month" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500">
+                    <!-- JS 동적 생성 -->
+                </select>
+            </div>
+        </div>
+
+        <!-- 조회 버튼 -->
+        <button id="btn-search" onclick="calculateWorkingDays()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold py-3 rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-[0.99] text-sm">
+            Working Day 계산하기
+        </button>
+
+        <!-- 로딩 스피너 -->
+        <div id="loading" class="hidden text-center py-10">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-2 border-emerald-500 border-t-transparent"></div>
+            <p id="loading-text" class="text-xs text-slate-400 mt-3">공휴일 정보를 불러오는 중...</p>
+        </div>
+
+        <!-- ================= [결과 영역 1: 월간 모드] ================= -->
+        <div id="result-month-container" class="hidden mt-6 space-y-4">
+            
+            <div class="bg-slate-950 border border-slate-800 rounded-2xl p-5 text-center">
+                <span id="res-m-label" class="text-xs font-semibold text-emerald-400 uppercase tracking-wider">2026년 10월</span>
+                <div class="flex items-baseline justify-center gap-1.5 mt-1">
+                    <span id="res-m-working-days" class="text-5xl font-black text-white">0</span>
+                    <span class="text-base font-bold text-slate-400">일 (Working Days)</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2 text-center text-xs">
+                <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
+                    <span class="text-slate-400 block mb-1">전체 일수</span>
+                    <span id="res-m-total-days" class="font-bold text-slate-200 text-sm">0일</span>
+                </div>
+                <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
+                    <span class="text-slate-400 block mb-1">주말 (토/일)</span>
+                    <span id="res-m-weekends" class="font-bold text-amber-400 text-sm">0일</span>
+                </div>
+                <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
+                    <span class="text-slate-400 block mb-1">평일 공휴일</span>
+                    <span id="res-m-holidays" class="font-bold text-rose-400 text-sm">0일</span>
+                </div>
+            </div>
+
+            <div class="bg-slate-950/40 border border-slate-800/60 rounded-2xl p-4">
+                <span class="text-xs font-semibold text-slate-400 block mb-2">📌 반영된 공휴일/임시공휴일</span>
+                <div id="res-m-holiday-list" class="text-xs text-slate-300 space-y-1.5">
+                    <!-- JS 동적 생성 -->
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ================= [결과 영역 2: 연간 모드 대시보드] ================= -->
+        <div id="result-year-container" class="hidden mt-6 space-y-4">
+            
+            <!-- 연간 총계 요약 헤더 및 전체 공휴일 보기 버튼 -->
+            <div class="bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 border border-slate-800 rounded-2xl p-5 flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+                <div>
+                    <span id="res-y-label" class="text-xs font-semibold text-emerald-400">2026년 전체</span>
+                    <h2 class="text-lg font-bold text-white mt-0.5">연간 총 Working Day</h2>
+                </div>
+                <div class="flex items-center justify-between sm:justify-end gap-3">
+                    <div class="text-right">
+                        <span id="res-y-total-working" class="text-3xl font-black text-emerald-400">0</span>
+                        <span class="text-xs text-slate-400 font-bold"> / <span id="res-y-total-days">365</span>일</span>
+                    </div>
+                    <!-- 전체 공휴일 보기 토글 버튼 -->
+                    <button onclick="toggleAllHolidaysPanel()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3 py-2 rounded-xl transition-all font-semibold">
+                        🎉 전체 공휴일 보기
+                    </button>
+                </div>
+            </div>
+
+            <!-- 1~12월 그리드 카드 (3열 배열) -->
+            <div id="year-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                <!-- JS 동적 생성 -->
+            </div>
+
+            <!-- [추가] 전체 공휴일 모아보기 패널 (초기 숨김) -->
+            <div id="all-holidays-panel" class="hidden bg-slate-950/60 border border-slate-800 rounded-2xl p-4 mt-4">
+                <div class="flex items-center justify-between mb-3 pb-2 border-b border-slate-800">
+                    <span class="text-xs font-bold text-rose-400 flex items-center gap-1.5">
+                        <span>📅</span> <span id="all-holidays-title">연간 전체 평일 공휴일 목록</span>
+                    </span>
+                    <button onclick="toggleAllHolidaysPanel()" class="text-xs text-slate-500 hover:text-slate-300">닫기 ✕</button>
+                </div>
+                <div id="all-holidays-list" class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    <!-- JS 동적 생성 -->
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <script>
+        // 개인 인증키
+        const SERVICE_KEY = "8e0bda57a13bf2ece2234135201c8c3b5de9a44f8365ddba538609c4a14bd8b2";
+
+        let currentMode = 'month'; // 'month' | 'year'
+        let currentYearHolidaysData = []; // 연간 공휴일 데이터 저장용
+
+        // 초기화 (현재 기준 ±10년 범위 설정)
+        document.addEventListener("DOMContentLoaded", () => {
+            const yearSelect = document.getElementById("select-year");
+            const monthSelect = document.getElementById("select-month");
+            
+            const currentYear = new Date().getFullYear();
+            const currentMonth = new Date().getMonth() + 1;
+
+            // 과거 10년 ~ 향후 10년 (총 21개 연도)
+            for (let y = currentYear - 10; y <= currentYear + 10; y++) {
+                const option = document.createElement("option");
+                option.value = y;
+                option.textContent = `${y}년`;
+                if (y === currentYear) option.selected = true;
+                yearSelect.appendChild(option);
+            }
+
+            for (let m = 1; m <= 12; m++) {
+                const option = document.createElement("option");
+                option.value = m;
+                option.textContent = `${m}월`;
+                if (m === currentMonth) option.selected = true;
+                monthSelect.appendChild(option);
+            }
+        });
+
+        // 보기 모드 전환 (월간 / 연간)
+        function switchMode(mode) {
+            currentMode = mode;
+            const btnMonth = document.getElementById("btn-mode-month");
+            const btnYear = document.getElementById("btn-mode-year");
+            const monthContainer = document.getElementById("month-select-container");
+
+            document.getElementById("result-month-container").classList.add("hidden");
+            document.getElementById("result-year-container").classList.add("hidden");
+
+            if (mode === 'month') {
+                btnMonth.className = "px-3 py-1.5 text-xs font-bold rounded-lg transition-all text-white bg-emerald-500 shadow-md";
+                btnYear.className = "px-3 py-1.5 text-xs font-bold rounded-lg transition-all text-slate-400 hover:text-white";
+                monthContainer.style.display = "block";
+            } else {
+                btnYear.className = "px-3 py-1.5 text-xs font-bold rounded-lg transition-all text-white bg-emerald-500 shadow-md";
+                btnMonth.className = "px-3 py-1.5 text-xs font-bold rounded-lg transition-all text-slate-400 hover:text-white";
+                monthContainer.style.display = "none";
+            }
+        }
+
+        // 공휴일 API 호출
+        async function fetchHolidays(year, month) {
+            const formattedMonth = String(month).padStart(2, '0');
+            const url = `https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getHoliDeInfo?serviceKey=${SERVICE_KEY}&solYear=${year}&solMonth=${formattedMonth}&_type=json`;
+
+            try {
+                const res = await fetch(url);
+                if (!res.ok) throw new Error("API 응답 오류");
+                
+                const data = await res.json();
+                const items = data.response?.body?.items?.item;
+
+                const holidays = [];
+                if (items) {
+                    const itemList = Array.isArray(items) ? items : [items];
+                    itemList.forEach(item => {
+                        if (item.isHoliday === "Y") {
+                            const dateStr = String(item.locdate);
+                            holidays.push({
+                                day: parseInt(dateStr.substring(6, 8), 10),
+                                name: item.dateName
+                            });
+                        }
+                    });
+                }
+                return holidays;
+            } catch (err) {
+                console.error(`[${month}월] 공휴일 로드 실패:`, err);
+                return [];
+            }
+        }
+
+        // 월별 Working Day 산출
+        function computeMonthStats(year, month, apiHolidays) {
+            const totalDays = new Date(year, month, 0).getDate();
+            let workingDays = 0;
+            let weekends = 0;
+            const weekdayHolidays = [];
+
+            for (let day = 1; day <= totalDays; day++) {
+                const dayOfWeek = new Date(year, month - 1, day).getDay();
+                const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+                const holidayInfo = apiHolidays.find(h => h.day === day);
+
+                if (isWeekend) {
+                    weekends++;
+                } else if (holidayInfo) {
+                    weekdayHolidays.push(holidayInfo);
+                } else {
+                    workingDays++;
+                }
+            }
+
+            return { totalDays, workingDays, weekends, weekdayHolidays };
+        }
+
+        // 연간 카드 클릭 시 개별 공휴일 펼침/접기 (독립 유지)
+        function toggleMonthHolidays(month) {
+            const detailEl = document.getElementById(`month-detail-${month}`);
+            const arrowEl = document.getElementById(`month-arrow-${month}`);
+            if (detailEl) {
+                const isHidden = detailEl.classList.contains("hidden");
+                if (isHidden) {
+                    detailEl.classList.remove("hidden");
+                    if (arrowEl) arrowEl.textContent = "▲";
+                } else {
+                    detailEl.classList.add("hidden");
+                    if (arrowEl) arrowEl.textContent = "▼";
+                }
+            }
+        }
+
+        // 전체 공휴일 보기 패널 토글
+        function toggleAllHolidaysPanel() {
+            const panel = document.getElementById("all-holidays-panel");
+            panel.classList.toggle("hidden");
+        }
+
+        // 메인 실행 함수
+        async function calculateWorkingDays() {
+            const year = parseInt(document.getElementById("select-year").value, 10);
+            const loadingEl = document.getElementById("loading");
+            const btnSearch = document.getElementById("btn-search");
+
+            loadingEl.classList.remove("hidden");
+            document.getElementById("result-month-container").classList.add("hidden");
+            document.getElementById("result-year-container").classList.add("hidden");
+            document.getElementById("all-holidays-panel").classList.add("hidden");
+            btnSearch.disabled = true;
+
+            if (currentMode === 'month') {
+                // 월간 모드
+                const month = parseInt(document.getElementById("select-month").value, 10);
+                document.getElementById("loading-text").textContent = `${year}년 ${month}월 공휴일 수집 중...`;
+
+                const holidays = await fetchHolidays(year, month);
+                const stats = computeMonthStats(year, month, holidays);
+
+                document.getElementById("res-m-label").textContent = `${year}년 ${month}월`;
+                document.getElementById("res-m-working-days").textContent = stats.workingDays;
+                document.getElementById("res-m-total-days").textContent = `${stats.totalDays}일`;
+                document.getElementById("res-m-weekends").textContent = `${stats.weekends}일`;
+                document.getElementById("res-m-holidays").textContent = `${stats.weekdayHolidays.length}일`;
+
+                const holidayListEl = document.getElementById("res-m-holiday-list");
+                holidayListEl.innerHTML = "";
+                if (stats.weekdayHolidays.length === 0) {
+                    holidayListEl.innerHTML = `<span class="text-slate-500 italic">평일 중 공휴일이 없습니다.</span>`;
+                } else {
+                    stats.weekdayHolidays.forEach(h => {
+                        holidayListEl.insertAdjacentHTML('beforeend', `
+                            <div class="flex justify-between items-center">
+                                <span class="text-rose-400 font-medium">${month}월 ${h.day}일</span>
+                                <span class="text-slate-300">${h.name}</span>
+                            </div>
+                        `);
+                    });
+                }
+
+                document.getElementById("result-month-container").classList.remove("hidden");
+
+            } else {
+                // 연간 모드 (1~12월 병렬 수집)
+                document.getElementById("loading-text").textContent = `${year}년 1~12월 데이터 일괄 수집 중...`;
+
+                const monthPromises = Array.from({ length: 12 }, (_, i) => fetchHolidays(year, i + 1));
+                const allHolidays = await Promise.all(monthPromises);
+
+                let yearTotalWorking = 0;
+                let yearTotalDays = 0;
+                currentYearHolidaysData = []; // 전체 공휴일 목록 초기화
+
+                const gridEl = document.getElementById("year-grid");
+                gridEl.innerHTML = "";
+
+                for (let m = 1; m <= 12; m++) {
+                    const holidays = allHolidays[m - 1];
+                    const stats = computeMonthStats(year, m, holidays);
+
+                    yearTotalWorking += stats.workingDays;
+                    yearTotalDays += stats.totalDays;
+
+                    // 전체 공휴일 배열 모으기
+                    stats.weekdayHolidays.forEach(h => {
+                        currentYearHolidaysData.push({ month: m, day: h.day, name: h.name });
+                    });
+
+                    const holidayCount = stats.weekdayHolidays.length;
+                    const holidayBadge = holidayCount > 0 
+                        ? `<span class="text-[10px] bg-rose-500/20 text-rose-300 border border-rose-500/30 px-1.5 py-0.5 rounded-full font-medium">공휴일 ${holidayCount}일</span>`
+                        : `<span class="text-[10px] text-slate-500">휴일 없음</span>`;
+
+                    // 월별 공휴일 펼침 상세 HTML 생성
+                    let monthHolidayDetailsHtml = "";
+                    if (holidayCount > 0) {
+                        monthHolidayDetailsHtml = stats.weekdayHolidays.map(h => `
+                            <div class="flex justify-between items-center text-[11px] py-0.5">
+                                <span class="text-rose-400 font-semibold">${h.day}일</span>
+                                <span class="text-slate-300">${h.name}</span>
+                            </div>
+                        `).join('');
+                    } else {
+                        monthHolidayDetailsHtml = `<div class="text-[11px] text-slate-500 italic py-0.5">평일 공휴일 없음</div>`;
+                    }
+
+                    // 월 카드를 클릭 가능하도록 구성 (onclick)
+                    gridEl.insertAdjacentHTML('beforeend', `
+                        <div class="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-3.5 flex flex-col justify-between hover:border-slate-700 transition-all cursor-pointer select-none" onclick="toggleMonthHolidays(${m})">
+                            <div>
+                                <div class="flex justify-between items-center mb-1.5">
+                                    <span class="text-xs font-bold text-white flex items-center gap-1">
+                                        ${m}월
+                                        <span id="month-arrow-${m}" class="text-[9px] text-slate-500">▼</span>
+                                    </span>
+                                    ${holidayBadge}
+                                </div>
+                                <div class="flex items-baseline justify-between">
+                                    <span class="text-2xl font-black text-emerald-400">${stats.workingDays}<span class="text-xs text-slate-500 font-normal">일</span></span>
+                                    <span class="text-[10px] text-slate-400">전체 ${stats.totalDays}일</span>
+                                </div>
+                            </div>
+
+                            <!-- 클릭 시 토글되는 드롭다운 영역 -->
+                            <div id="month-detail-${m}" class="hidden mt-2.5 pt-2 border-t border-slate-800/80 space-y-1" onclick="event.stopPropagation()">
+                                ${monthHolidayDetailsHtml}
+                            </div>
+                        </div>
+                    `);
+                }
+
+                // 전체 공휴일 하단 목록 패널 렌더링
+                document.getElementById("all-holidays-title").textContent = `${year}년 전체 평일 공휴일 목록 (${currentYearHolidaysData.length}일)`;
+                const allHolidaysListEl = document.getElementById("all-holidays-list");
+                allHolidaysListEl.innerHTML = "";
+
+                if (currentYearHolidaysData.length === 0) {
+                    allHolidaysListEl.innerHTML = `<span class="text-slate-500 italic col-span-2">해당 연도에는 평일 공휴일이 없습니다.</span>`;
+                } else {
+                    currentYearHolidaysData.forEach(item => {
+                        allHolidaysListEl.insertAdjacentHTML('beforeend', `
+                            <div class="flex justify-between items-center bg-slate-900/80 p-2 rounded-lg border border-slate-800/80">
+                                <span class="text-rose-400 font-bold">${item.month}월 ${item.day}일</span>
+                                <span class="text-slate-200 font-medium">${item.name}</span>
+                            </div>
+                        `);
+                    });
+                }
+
+                document.getElementById("res-y-label").textContent = `${year}년 전체 결과`;
+                document.getElementById("res-y-total-working").textContent = yearTotalWorking;
+                document.getElementById("res-y-total-days").textContent = yearTotalDays;
+
+                document.getElementById("result-year-container").classList.remove("hidden");
+            }
+
+            loadingEl.classList.add("hidden");
+            btnSearch.disabled = false;
+        }
+    </script>
+</body>
+</html>
